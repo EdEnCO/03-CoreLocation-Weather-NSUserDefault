@@ -15,6 +15,8 @@ class ViewController: UIViewController, CLLocationManagerDelegate {
     
     // Variables
     var locationManager = CLLocationManager()
+    var weather = NSUserDefaults.standardUserDefaults()
+    var networkReachability = NetworkReachabilityManager(host: "openweathermap.org")
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -31,24 +33,43 @@ class ViewController: UIViewController, CLLocationManagerDelegate {
     }
     
     func locationManager(manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        print("Location: \(manager.location)")
-        
         let currentLocation = locationManager.location
         
         if currentLocation != nil {
-            // print("Latitude: \((currentLocation?.coordinate.latitude)!) - Longitude: \((currentLocation?.coordinate.longitude)!)")
             let lat = (currentLocation?.coordinate.latitude)!
             let lon = (currentLocation?.coordinate.longitude)!
-            Alamofire.request(.GET, "http://api.openweathermap.org/data/2.5/weather?lat=\(lat)&lon=\(lon)&appid=fc5edb9fa5d86243573c9a9fc26f8d86").validate().responseJSON(completionHandler: { (response) in
-                switch response.result {
-                case .Success:
-                    let json = JSON(response.result.value!)
-                    print(json)
-                case .Failure(let error):
-                    print(error)
+            
+            /*
+            networkReachability?.listener = { status in
+                print("Network Status Changed: \(status)")
+            }
+            
+            networkReachability?.startListening()
+            */
+            
+            if networkReachability?.isReachable != false {
+                print("Reachable")
+                Alamofire.request(.GET, "http://api.openweathermap.org/data/2.5/weather?lat=\(lat)&lon=\(lon)&appid=fc5edb9fa5d86243573c9a9fc26f8d86").validate().responseJSON(completionHandler: { (response) in
+                    switch response.result {
+                    case .Success:
+                        let json = JSON(response.result.value!)
+                        self.weather.setObject(json["name"].string, forKey: "cityName")
+                        self.weather.setObject(json["weather"][0]["description"].string, forKey: "weatherDescription")
+                        print(json)
+                    case .Failure(let error):
+                        print(error)
+                    }
+                })
+            } else {
+                print("Not Reachable")
+                if weather.objectForKey("cityName") != nil {
+                    print(weather.objectForKey("cityName")!)
+                    print(weather.objectForKey("weatherDescription")!)
+                } else {
+                    print("Network is not reachable and dataBase is empty!")
                 }
-                // print(response.result.value)
-            })
+            }
+            
         }
         
         manager.stopUpdatingLocation()
